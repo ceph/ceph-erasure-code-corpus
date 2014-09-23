@@ -30,13 +30,14 @@ done <<EOF
 8 4 3
 EOF
 
-while read k m ; do
-    for technique in reed_sol_van cauchy ; do
-        for stripe_width in $STRIPE_WIDTHS ; do
-            ceph_erasure_code_non_regression --stripe-width $stripe_width --plugin isa --parameter technique=$technique --parameter k=$k --parameter m=$m $ACTION $VERBOSE $MYDIR
+if ceph_erasure_code --plugin_exists isa ; then
+    while read k m ; do
+        for technique in reed_sol_van cauchy ; do
+            for stripe_width in $STRIPE_WIDTHS ; do
+                ceph_erasure_code_non_regression --stripe-width $stripe_width --plugin isa --parameter technique=$technique --parameter k=$k --parameter m=$m $ACTION $VERBOSE $MYDIR
+            done
         done
-    done
-done <<EOF
+    done <<EOF
 2 1
 3 1
 3 2
@@ -52,6 +53,7 @@ done <<EOF
 9 5
 9 6
 EOF
+fi
 
 while read k m ; do
     for stripe_width in $STRIPE_WIDTHS ; do
