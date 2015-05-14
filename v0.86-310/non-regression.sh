@@ -45,13 +45,10 @@ if ceph_erasure_code --plugin_exists isa ; then
 4 3
 7 3
 7 4
-7 5
 8 3
 8 4
 9 3
 9 4
-9 5
-9 6
 EOF
 fi
 
