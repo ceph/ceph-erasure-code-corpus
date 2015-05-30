@@ -77,6 +77,7 @@ if ceph_erasure_code --plugin_exists isa ; then
 8 4
 9 3
 9 4
+10 4
 EOF
 fi
 
