@@ -8,7 +8,7 @@ To check all prior sets of data from the ceph/src directory:
 DIRECTORY=../../ceph-erasure-code-corpus \
   ../qa/workunits/erasure-code/encode-decode-non-regression.sh
 
-It will clone https://github.com/dachary/ceph-erasure-code-corpus.git
+It will clone https://github.com/ceph/ceph-erasure-code-corpus.git
 
 To check a set of data from the ceph/src directory:
 
