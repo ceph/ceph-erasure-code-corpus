@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -x
 #
 # Copyright (C) 2014, 2015 Red Hat <contact@redhat.com>
 # Copyright (C) 2015 FUJITSU LIMITED
@@ -22,11 +22,12 @@
 : ${JERASURE_VARIANTS:=generic sse3 sse4}
 : ${MYDIR:=--base $(dirname $0)}
 
-while read k m c ; do
-    for stripe_width in $STRIPE_WIDTHS ; do
-        ceph_erasure_code_non_regression --stripe-width $stripe_width --plugin shec --parameter technique=multiple --parameter k=$k --parameter m=$m --parameter c=$c $ACTION $VERBOSE $MYDIR
-    done
-done <<EOF
+function test_shec() {
+    while read k m c ; do
+        for stripe_width in $STRIPE_WIDTHS ; do
+            ceph_erasure_code_non_regression --stripe-width $stripe_width --plugin shec --parameter technique=multiple --parameter k=$k --parameter m=$m --parameter c=$c $ACTION $VERBOSE $MYDIR || return 1
+        done
+    done <<EOF
 1 1 1
 2 1 1
 3 2 1
@@ -47,25 +48,29 @@ done <<EOF
 9 5 3
 12 7 4
 EOF
+}
 
-while read k m l ; do
-    for stripe_width in $STRIPE_WIDTHS ; do
-        ceph_erasure_code_non_regression --stripe-width $stripe_width --plugin lrc --parameter k=$k --parameter m=$m --parameter l=$l $ACTION $VERBOSE $MYDIR
-    done
-done <<EOF
+function test_lrc() {
+    while read k m l ; do
+        for stripe_width in $STRIPE_WIDTHS ; do
+            ceph_erasure_code_non_regression --stripe-width $stripe_width --plugin lrc --parameter k=$k --parameter m=$m --parameter l=$l $ACTION $VERBOSE $MYDIR || return 1
+        done
+    done <<EOF
 2 2 2
 4 2 3
 8 4 3
 EOF
+}
 
-if ceph_erasure_code --plugin_exists isa ; then
-    while read k m ; do
-        for technique in reed_sol_van cauchy ; do
-            for stripe_width in $STRIPE_WIDTHS ; do
-                ceph_erasure_code_non_regression --stripe-width $stripe_width --plugin isa --parameter technique=$technique --parameter k=$k --parameter m=$m $ACTION $VERBOSE $MYDIR
+function test_isa() {
+    if ceph_erasure_code --plugin_exists isa ; then
+        while read k m ; do
+            for technique in reed_sol_van cauchy ; do
+                for stripe_width in $STRIPE_WIDTHS ; do
+                    ceph_erasure_code_non_regression --stripe-width $stripe_width --plugin isa --parameter technique=$technique --parameter k=$k --parameter m=$m $ACTION $VERBOSE $MYDIR || return 1
+                done
             done
-        done
-    done <<EOF
+        done <<EOF
 2 1
 3 1
 3 2
@@ -79,17 +84,19 @@ if ceph_erasure_code --plugin_exists isa ; then
 9 4
 10 4
 EOF
-fi
+    fi
+}
 
-while read k m ; do
-    for stripe_width in $STRIPE_WIDTHS ; do
-        for technique in cauchy_good cauchy_orig ; do
-            for alignment in '' '--parameter jerasure-per-chunk-alignment=true' ; do
-                ceph_erasure_code_non_regression --stripe-width $stripe_width --parameter packetsize=32 --plugin jerasure --parameter technique=$technique --parameter k=$k --parameter m=$m $alignment $ACTION $VERBOSE $MYDIR
+function test_jerasure() {
+    while read k m ; do
+        for stripe_width in $STRIPE_WIDTHS ; do
+            for technique in cauchy_good cauchy_orig ; do
+                for alignment in '' '--parameter jerasure-per-chunk-alignment=true' ; do
+                    ceph_erasure_code_non_regression --stripe-width $stripe_width --parameter packetsize=32 --plugin jerasure --parameter technique=$technique --parameter k=$k --parameter m=$m $alignment $ACTION $VERBOSE $MYDIR || return 1
+                done
             done
         done
-    done
-done <<EOF
+    done <<EOF
 2 1
 3 1
 3 2
@@ -106,13 +113,13 @@ done <<EOF
 9 6
 EOF
 
-while read k m ; do
-    for stripe_width in $STRIPE_WIDTHS ; do
-        for alignment in '' '--parameter jerasure-per-chunk-alignment=true' ; do
-            ceph_erasure_code_non_regression --stripe-width $stripe_width --plugin jerasure --parameter technique=reed_sol_van --parameter k=$k --parameter m=$m $alignment $ACTION $VERBOSE $MYDIR
+    while read k m ; do
+        for stripe_width in $STRIPE_WIDTHS ; do
+            for alignment in '' '--parameter jerasure-per-chunk-alignment=true' ; do
+                ceph_erasure_code_non_regression --stripe-width $stripe_width --plugin jerasure --parameter technique=reed_sol_van --parameter k=$k --parameter m=$m $alignment $ACTION $VERBOSE $MYDIR || return 1
+            done
         done
-    done
-done <<EOF
+    done <<EOF
 2 1
 3 1
 3 2
@@ -129,12 +136,22 @@ done <<EOF
 9 6
 EOF
 
-for k in $(seq 2 6) ; do
-    for stripe_width in $STRIPE_WIDTHS ; do
-        for technique in reed_sol_r6_op liberation blaum_roth liber8tion ; do
-            for alignment in '' '--parameter jerasure-per-chunk-alignment=true' ; do
-                ceph_erasure_code_non_regression --stripe-width $stripe_width --parameter packetsize=32 --plugin jerasure --parameter technique=$technique --parameter k=$k --parameter m=2 $alignment $ACTION $VERBOSE $MYDIR
+    for k in $(seq 2 6) ; do
+        for stripe_width in $STRIPE_WIDTHS ; do
+            for technique in reed_sol_r6_op liberation blaum_roth liber8tion ; do
+                for alignment in '' '--parameter jerasure-per-chunk-alignment=true' ; do
+                    ceph_erasure_code_non_regression --stripe-width $stripe_width --parameter packetsize=32 --plugin jerasure --parameter technique=$technique --parameter k=$k --parameter m=2 $alignment $ACTION $VERBOSE $MYDIR || return 1
+                done
             done
         done
     done
-done
+}
+
+function run() {
+    local funcs=${@:-$(set | sed -n -e 's/^\(test_[0-9a-z_]*\) .*/\1/p')}
+    for func in $funcs ; do
+        $func || return 1
+    done
+}
+
+run "$@" || exit 1
