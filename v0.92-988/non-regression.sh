@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 #
 # Copyright (C) 2014, 2015 Red Hat <contact@redhat.com>
 # Copyright (C) 2015 FUJITSU LIMITED
@@ -203,6 +203,8 @@ EOF
 function run() {
     local all_funcs=$(set | sed -n -e 's/^\(test_[0-9a-z_]*\) .*/\1/p')
     local funcs=${@:-$all_funcs}
+    PS4="$0":'$LINENO: ${FUNCNAME[0]} '
+    set -x
     for func in $funcs ; do
         $func || return 1
     done
