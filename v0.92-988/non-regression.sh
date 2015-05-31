@@ -87,12 +87,40 @@ EOF
     fi
 }
 
+function jerasure_variants() {
+    local variant
+    eval variant=$(ceph_erasure_code --debug-osd 20 --plugin_exists jerasure 2>&1 | sed -e 's/.*load: *//')
+    echo -n 'generic '
+    case $variant in
+        jerasure_sse4) echo sse3 sse4 ;;
+        jerasure_sse3) echo sse3 ;;
+        jerasure_neon) echo neon ;;
+    esac
+}
+
+function jerasure_action() {
+    local action=$1
+    shift
+
+    ceph_erasure_code_non_regression "$@" $action || return 1
+    if test "$action" = --check ; then
+        path=$(ceph_erasure_code_non_regression "$@" --show-path)
+        #
+        # Verify all variants of the jerasure plugin encode/decode in the same
+        # way, although they use a different code path.
+        #
+        for variant in $(jerasure_variants) ; do
+            ceph_erasure_code_non_regression "$@" --path "$path" --parameter jerasure-variant=$variant --check || return 1
+        done
+    fi
+}
+
 function test_jerasure() {
     while read k m ; do
         for stripe_width in $STRIPE_WIDTHS ; do
             for technique in cauchy_good cauchy_orig ; do
                 for alignment in '' '--parameter jerasure-per-chunk-alignment=true' ; do
-                    ceph_erasure_code_non_regression --stripe-width $stripe_width --parameter packetsize=32 --plugin jerasure --parameter technique=$technique --parameter k=$k --parameter m=$m $alignment $ACTION $VERBOSE $MYDIR || return 1
+                    jerasure_action $ACTION --stripe-width $stripe_width --parameter packetsize=32 --plugin jerasure --parameter technique=$technique --parameter k=$k --parameter m=$m $alignment $VERBOSE $MYDIR || return 1
                 done
             done
         done
@@ -116,7 +144,7 @@ EOF
     while read k m ; do
         for stripe_width in $STRIPE_WIDTHS ; do
             for alignment in '' '--parameter jerasure-per-chunk-alignment=true' ; do
-                ceph_erasure_code_non_regression --stripe-width $stripe_width --plugin jerasure --parameter technique=reed_sol_van --parameter k=$k --parameter m=$m $alignment $ACTION $VERBOSE $MYDIR || return 1
+                jerasure_action $ACTION --stripe-width $stripe_width --plugin jerasure --parameter technique=reed_sol_van --parameter k=$k --parameter m=$m $alignment $VERBOSE $MYDIR || return 1
             done
         done
     done <<EOF
@@ -140,7 +168,7 @@ EOF
         for stripe_width in $STRIPE_WIDTHS ; do
             for technique in reed_sol_r6_op liberation blaum_roth liber8tion ; do
                 for alignment in '' '--parameter jerasure-per-chunk-alignment=true' ; do
-                    ceph_erasure_code_non_regression --stripe-width $stripe_width --parameter packetsize=32 --plugin jerasure --parameter technique=$technique --parameter k=$k --parameter m=2 $alignment $ACTION $VERBOSE $MYDIR || return 1
+                    jerasure_action $ACTION --stripe-width $stripe_width --parameter packetsize=32 --plugin jerasure --parameter technique=$technique --parameter k=$k --parameter m=2 $alignment $VERBOSE $MYDIR || return 1
                 done
             done
         done
