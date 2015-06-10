@@ -29,7 +29,9 @@ function non_regression() {
     local action=$1
     shift
 
-    ceph_erasure_code_non_regression $action "$@" || return 1
+    if test $action != NOOP ; then
+        ceph_erasure_code_non_regression $action "$@" || return 1
+    fi
     ceph_erasure_code_non_regression --show-path "$@" >> $TMP/used
 }
 
@@ -88,14 +90,19 @@ EOF
 }
 
 function test_isa() {
-    if ceph_erasure_code --plugin_exists isa ; then
-        while read k m ; do
-            for technique in reed_sol_van cauchy ; do
-                for stripe_width in $STRIPE_WIDTHS ; do
-                    non_regression $ACTION --stripe-width $stripe_width --plugin isa --parameter technique=$technique --parameter k=$k --parameter m=$m $VERBOSE $MYDIR || return 1
-                done
+    local action=$ACTION
+
+    if ! ceph_erasure_code --plugin_exists isa ; then
+        action=NOOP
+    fi
+
+    while read k m ; do
+        for technique in reed_sol_van cauchy ; do
+            for stripe_width in $STRIPE_WIDTHS ; do
+                non_regression $action --stripe-width $stripe_width --plugin isa --parameter technique=$technique --parameter k=$k --parameter m=$m $VERBOSE $MYDIR || return 1
             done
-        done <<EOF
+        done
+    done <<EOF
 2 1
 3 1
 3 2
@@ -109,7 +116,6 @@ function test_isa() {
 9 4
 10 4
 EOF
-    fi
 }
 
 function jerasure_variants() {
