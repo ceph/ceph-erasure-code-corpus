@@ -49,10 +49,38 @@ function verify_directories() {
     fi
 }
 
+function shec_variants() {
+    local variant
+    eval variant=$(ceph_erasure_code --debug-osd 20 --plugin_exists shec 2>&1 | sed -e 's/.*load: *//')
+    echo -n 'generic '
+    case $variant in
+        shec_sse4) echo sse3 sse4 ;;
+        shec_sse3) echo sse3 ;;
+        shec_neon) echo neon ;;
+    esac
+}
+
+function shec_action() {
+    local action=$1
+    shift
+
+    non_regression $action "$@" || return 1
+    if test "$action" = --check ; then
+        path=$(ceph_erasure_code_non_regression --show-path "$@")
+        #
+        # Verify all variants of the shec plugin encode/decode in the same
+        # way, although they use a different code path.
+        #
+        for variant in $(shec_variants) ; do
+            ceph_erasure_code_non_regression $action "$@" --path "$path" --parameter shec-variant=$variant || return 1
+        done
+    fi
+}
+
 function test_shec() {
     while read k m c ; do
         for stripe_width in $STRIPE_WIDTHS ; do
-            non_regression $ACTION --stripe-width $stripe_width --plugin shec --parameter technique=multiple --parameter k=$k --parameter m=$m --parameter c=$c $VERBOSE $MYDIR || return 1
+            shec_action $ACTION --stripe-width $stripe_width --plugin shec --parameter technique=multiple --parameter k=$k --parameter m=$m --parameter c=$c $VERBOSE $MYDIR || return 1
         done
     done <<EOF
 1 1 1
