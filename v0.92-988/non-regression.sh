@@ -51,7 +51,7 @@ function verify_directories() {
 
 function shec_variants() {
     local variant
-    eval variant=$(ceph_erasure_code --debug-osd 20 --plugin_exists shec 2>&1 | sed -e 's/.*load: *//')
+    variant=$(default_variant shec) || return 1
     echo -n 'generic '
     case $variant in
         shec_sse4) echo sse3 sse4 ;;
@@ -71,7 +71,9 @@ function shec_action() {
         # Verify all variants of the shec plugin encode/decode in the same
         # way, although they use a different code path.
         #
-        for variant in $(shec_variants) ; do
+        local variants
+        variants=$(shec_variants) || return 1
+        for variant in $variants ; do
             ceph_erasure_code_non_regression $action "$@" --path "$path" --parameter shec-variant=$variant || return 1
         done
     fi
@@ -146,9 +148,16 @@ function test_isa() {
 EOF
 }
 
+function default_variant() {
+    local plugin=$1
+    ceph_erasure_code --debug-osd 20 --plugin_exists $plugin > $TMP/variant.txt 2>&1 || return 1
+    eval variant=$(sed -e 's/.*load: *//' < $TMP/variant.txt)
+    echo $variant
+}
+
 function jerasure_variants() {
     local variant
-    eval variant=$(ceph_erasure_code --debug-osd 20 --plugin_exists jerasure 2>&1 | sed -e 's/.*load: *//')
+    variant=$(default_variant jerasure) || return 1
     echo -n 'generic '
     case $variant in
         jerasure_sse4) echo sse3 sse4 ;;
@@ -168,7 +177,9 @@ function jerasure_action() {
         # Verify all variants of the jerasure plugin encode/decode in the same
         # way, although they use a different code path.
         #
-        for variant in $(jerasure_variants) ; do
+        local variants
+        variants=$(jerasure_variants) || return 1
+        for variant in $variants ; do
             ceph_erasure_code_non_regression $action "$@" --path "$path" --parameter jerasure-variant=$variant || return 1
         done
     fi
