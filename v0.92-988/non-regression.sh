@@ -22,7 +22,7 @@
 : ${JERASURE_VARIANTS:=generic sse3 sse4}
 : ${MYDIR:=--base $(dirname $0)}
 
-TMP=$(mktemp --directory)
+TMP=$(mktemp -d)
 trap "rm -fr $TMP" EXIT
 
 function non_regression() {
