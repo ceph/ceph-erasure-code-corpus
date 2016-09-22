@@ -31,7 +31,6 @@ function non_regression() {
     if test $action != NOOP ; then
         ceph_erasure_code_non_regression $action "$@" || return 1
     fi
-    ceph_erasure_code_non_regression --show-path "$@" >> $TMP/used
 }
 
 function verify_directories() {
@@ -54,9 +53,7 @@ function shec_action() {
 
     non_regression $action "$@" || return 1
     if test "$action" = --check ; then
-        path=$(ceph_erasure_code_non_regression --show-path "$@")
-
-        simd_variation_action $action "$@" --path "$path" || return 1
+        simd_variation_action $action "$@" || return 1
     fi
 }
 
@@ -135,7 +132,12 @@ EOF
 #
 function simd_variation_action() {
 
-    local arch=$(uname -p)
+    arch=$(uname -p)
+
+    # WARNING: If you modify this function please manually test that gf-complete is
+    # running the appropriate SIMD paths. One way to do that is to enable
+    # DEBUG_CPU_DETECTION when building libec___.so.
+    # See src/erasure-code/jerasure/CMakeLists.txt for how to do that.
 
     case $arch in
         aarch64*|arm*) 
@@ -188,6 +190,10 @@ function simd_variation_action() {
             unset GF_COMPLETE_DISABLE_SSE4_PCLMUL
             ceph_erasure_code_non_regression "$@" || return 1
             ;;
+        *)
+            echo unsupported arch $arch
+            return 1
+            ;;
     esac
 } 
 
@@ -197,9 +203,7 @@ function jerasure_action() {
 
     non_regression $action "$@" || return 1
     if test "$action" = --check ; then
-        path=$(ceph_erasure_code_non_regression --show-path "$@")
-
-        simd_variation_action $action "$@" --path "$path" || return 1
+        simd_variation_action $action "$@" || return 1
     fi
 }
 
