@@ -19,7 +19,6 @@
 : ${ACTION:=--check}
 : ${STRIPE_WIDTHS:=4096 4651 8192 10000 65000 65536}
 : ${VERBOSE:=} # VERBOSE=--debug-osd=20
-: ${JERASURE_VARIANTS:=generic sse3 sse4}
 : ${MYDIR:=--base $(dirname $0)}
 
 TMP=$(mktemp -d)
@@ -49,17 +48,6 @@ function verify_directories() {
     fi
 }
 
-function shec_variants() {
-    local variant
-    variant=$(default_variant shec) || return 1
-    echo -n 'generic '
-    case $variant in
-        shec_sse4) echo sse3 sse4 ;;
-        shec_sse3) echo sse3 ;;
-        shec_neon) echo neon ;;
-    esac
-}
-
 function shec_action() {
     local action=$1
     shift
@@ -67,15 +55,8 @@ function shec_action() {
     non_regression $action "$@" || return 1
     if test "$action" = --check ; then
         path=$(ceph_erasure_code_non_regression --show-path "$@")
-        #
-        # Verify all variants of the shec plugin encode/decode in the same
-        # way, although they use a different code path.
-        #
-        local variants
-        variants=$(shec_variants) || return 1
-        for variant in $variants ; do
-            ceph_erasure_code_non_regression $action "$@" --path "$path" --parameter shec-variant=$variant || return 1
-        done
+
+        simd_variation_action $action "$@" --path "$path" || return 1
     fi
 }
 
@@ -148,23 +129,67 @@ function test_isa() {
 EOF
 }
 
-function default_variant() {
-    local plugin=$1
-    ceph_erasure_code --debug-osd 20 --plugin_exists $plugin > $TMP/variant.txt 2>&1 || return 1
-    eval variant=$(sed -e 's/.*load: *//' < $TMP/variant.txt)
-    echo $variant
-}
+#
+# Verify all SIMD code paths of the jerasure plugin 
+# encode/decode in the same.
+#
+function simd_variation_action() {
 
-function jerasure_variants() {
-    local variant
-    variant=$(default_variant jerasure) || return 1
-    echo -n 'generic '
-    case $variant in
-        jerasure_sse4) echo sse3 sse4 ;;
-        jerasure_sse3) echo sse3 ;;
-        jerasure_neon) echo neon ;;
+    local arch=$(uname -p)
+
+    case $arch in
+        aarch64*|arm*) 
+            export GF_COMPLETE_DISABLE_NEON=1
+            ceph_erasure_code_non_regression "$@" || return 1
+
+            unset GF_COMPLETE_DISABLE_NEON
+            ceph_erasure_code_non_regression "$@" || return 1
+            ;;
+        i[[3456]]86*|x86_64*|amd64*)
+            export GF_COMPLETE_DISABLE_SSE2=1
+            export GF_COMPLETE_DISABLE_SSE3=1
+            export GF_COMPLETE_DISABLE_SSSE3=1
+            export GF_COMPLETE_DISABLE_SSE4=1
+            export GF_COMPLETE_DISABLE_SSE4_PCLMUL=1
+            ceph_erasure_code_non_regression "$@" || return 1
+
+            unset GF_COMPLETE_DISABLE_SSE2
+            export GF_COMPLETE_DISABLE_SSE3=1
+            export GF_COMPLETE_DISABLE_SSSE3=1
+            export GF_COMPLETE_DISABLE_SSE4=1
+            export GF_COMPLETE_DISABLE_SSE4_PCLMUL=1
+            ceph_erasure_code_non_regression "$@" || return 1
+
+            unset GF_COMPLETE_DISABLE_SSE2
+            unset GF_COMPLETE_DISABLE_SSE3
+            export GF_COMPLETE_DISABLE_SSSE3=1
+            export GF_COMPLETE_DISABLE_SSE4=1
+            export GF_COMPLETE_DISABLE_SSE4_PCLMUL=1
+            ceph_erasure_code_non_regression "$@" || return 1
+
+            unset GF_COMPLETE_DISABLE_SSE2
+            unset GF_COMPLETE_DISABLE_SSE3
+            unset GF_COMPLETE_DISABLE_SSSE3
+            export GF_COMPLETE_DISABLE_SSE4=1
+            export GF_COMPLETE_DISABLE_SSE4_PCLMUL=1
+            ceph_erasure_code_non_regression "$@" || return 1
+
+            unset GF_COMPLETE_DISABLE_SSE2
+            unset GF_COMPLETE_DISABLE_SSE3
+            unset GF_COMPLETE_DISABLE_SSSE3
+            unset GF_COMPLETE_DISABLE_SSE4
+            export GF_COMPLETE_DISABLE_SSE4_PCLMUL=1
+            ceph_erasure_code_non_regression "$@" || return 1
+
+            unset GF_COMPLETE_DISABLE_SSE2
+            unset GF_COMPLETE_DISABLE_SSE3
+            unset GF_COMPLETE_DISABLE_SSSE3
+            unset GF_COMPLETE_DISABLE_SSE4
+            unset GF_COMPLETE_DISABLE_SSE4_PCLMUL
+            ceph_erasure_code_non_regression "$@" || return 1
+            ;;
     esac
-}
+} 
 
 function jerasure_action() {
     local action=$1
@@ -173,15 +198,8 @@ function jerasure_action() {
     non_regression $action "$@" || return 1
     if test "$action" = --check ; then
         path=$(ceph_erasure_code_non_regression --show-path "$@")
-        #
-        # Verify all variants of the jerasure plugin encode/decode in the same
-        # way, although they use a different code path.
-        #
-        local variants
-        variants=$(jerasure_variants) || return 1
-        for variant in $variants ; do
-            ceph_erasure_code_non_regression $action "$@" --path "$path" --parameter jerasure-variant=$variant || return 1
-        done
+
+        simd_variation_action $action "$@" --path "$path" || return 1
     fi
 }
 
