@@ -17,7 +17,6 @@
 : ${ACTION:=--check}
 : ${STRIPE_WIDTHS:=4096 4651 8192 10000 65000 65536}
 : ${VERBOSE:=} # VERBOSE=--debug-osd=20
-: ${JERASURE_VARIANTS:=generic sse3 sse4}
 : ${MYDIR:=--base $(dirname $0)}
 
 while read k m l ; do
