@@ -132,7 +132,7 @@ EOF
 #
 function simd_variation_action() {
 
-    arch=$(uname -p)
+    arch=$(arch)
 
     # WARNING: If you modify this function please manually test that gf-complete is
     # running the appropriate SIMD paths. One way to do that is to enable
