@@ -132,7 +132,11 @@ EOF
 #
 function simd_variation_action() {
 
-    arch=$(arch)
+    if which arch > /dev/null 2>1 ; then
+        arch=$(arch)
+    else
+        arch=$(uname -p)
+    fi
 
     # WARNING: If you modify this function please manually test that gf-complete is
     # running the appropriate SIMD paths. One way to do that is to enable
