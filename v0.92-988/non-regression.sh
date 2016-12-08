@@ -112,6 +112,7 @@ function test_isa() {
         done
     done <<EOF
 2 1
+2 2
 3 1
 3 2
 4 2
@@ -222,6 +223,7 @@ function test_jerasure() {
         done
     done <<EOF
 2 1
+2 2
 3 1
 3 2
 4 2
@@ -245,6 +247,7 @@ EOF
         done
     done <<EOF
 2 1
+2 2
 3 1
 3 2
 4 2
